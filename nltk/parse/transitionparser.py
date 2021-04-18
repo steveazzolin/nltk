@@ -560,15 +560,12 @@ class TransitionParser(ParserI):
             # Algorithms for Deterministic Incremental Dependency Parsing by Joakim Nivre
             # Todo : because of probability = True => very slow due to
             # cross-validation. Need to improve the speed here
-            
-            
-            print(x_train.shape)
 
             if self.linear_svm:
                 model = Pipeline([
                     ('poly', PolynomialFeatures(2)),
                     ('svm', CalibratedClassifierCV(
-                        base_estimator=svm.LinearSVC(penalty='l2', max_iter=10000, random_state=42, dual=True), 
+                        base_estimator=svm.LinearSVC(penalty='l2', max_iter=1000, random_state=42, dual=False), 
                         cv=3))
                 ])
             else:
@@ -578,7 +575,7 @@ class TransitionParser(ParserI):
                     coef0=0,
                     gamma=0.2,
                     C=0.5,
-                    verbose=verbose,
+                    #verbose=verbose,
                     probability=True,
                 )
 
