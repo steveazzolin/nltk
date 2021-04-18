@@ -560,8 +560,8 @@ class TransitionParser(ParserI):
 
             if self.linear_svm:
                 model = Pipeline([
-                    #('poly', PolynomialFeatures(2)),
-                    ('svd', TruncatedSVD(n_components=10)),
+                    ('svd', TruncatedSVD(n_components=500)),
+                    ('poly', PolynomialFeatures(2)),
                     ('svm', CalibratedClassifierCV(
                         base_estimator=svm.LinearSVC(penalty='l2'), 
                         cv=3))
