@@ -15,9 +15,15 @@ from operator import itemgetter
 
 try:
     from numpy import array
+    import numpy as np
     from scipy import sparse
     from sklearn.datasets import load_svmlight_file
     from sklearn import svm
+    from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+    from sklearn.calibration import CalibratedClassifierCV
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.pipeline import Pipeline
 except ImportError:
     pass
 
@@ -38,7 +44,7 @@ class Configuration(object):
     This class also provides a method to represent a configuration as list of features.
     """
 
-    def __init__(self, dep_graph):
+    def __init__(self, dep_graph, glove):
         """
         :param dep_graph: the representation of an input in the form of dependency graph.
         :type dep_graph: DependencyGraph where the dependencies are not specified.
@@ -49,6 +55,7 @@ class Configuration(object):
         self.arcs = []  # empty set of arc
         self._tokens = dep_graph.nodes
         self._max_address = len(self.buffer)
+        self.glove = glove
 
     def __str__(self):
         return (
@@ -94,10 +101,10 @@ class Configuration(object):
                 result.append("STK_0_LEMMA_" + token["lemma"])
             if self._check_informative(token["tag"]):
                 result.append("STK_0_POS_" + token["tag"])
-            if "feats" in token and self._check_informative(token["feats"]):
-                feats = token["feats"].split("|")
-                for feat in feats:
-                    result.append("STK_0_FEATS_" + feat)
+            #if "feats" in token and self._check_informative(token["feats"]):
+            feats = self.glove.get(token['word'], [0.0]*50)
+            for i , feat in enumerate(feats):
+                result.append(f"Steve_feature1{i}:" + str(feat))
             # Stack 1
             if len(self.stack) > 1:
                 stack_idx1 = self.stack[len(self.stack) - 2]
@@ -134,10 +141,10 @@ class Configuration(object):
                 result.append("BUF_0_LEMMA_" + token["lemma"])
             if self._check_informative(token["tag"]):
                 result.append("BUF_0_POS_" + token["tag"])
-            if "feats" in token and self._check_informative(token["feats"]):
-                feats = token["feats"].split("|")
-                for feat in feats:
-                    result.append("BUF_0_FEATS_" + feat)
+            #if "feats" in token and self._check_informative(token["feats"]):
+            feats = self.glove.get(token['word'], [0.0]*50)
+            for i , feat in enumerate(feats):
+                result.append(f"Steve_feature2{i}:" + str(feat))
             # Buffer 1
             if len(self.buffer) > 1:
                 buffer_idx1 = self.buffer[1]
@@ -309,6 +316,19 @@ class TransitionParser(ParserI):
         self._transition = {}
         self._match_transition = {}
 
+        #Read GLOVE Embeddings
+        print("Reading GLOVE....")
+        self.glove = {}
+        with open("glove.6B/glove.6B.50d.txt", 'r', encoding="utf-8") as f:
+            for line in f:
+                values = line.split()
+                word = values[0]
+                vector = np.asarray(values[1:], "float32")
+                self.glove[word] = vector
+        self.glove.setdefault(None, [0.0]*50)
+        self.glove.setdefault('None', [0.0]*50)
+        print("GLOVE read")
+
     def _get_dep_relation(self, idx_parent, idx_child, depgraph):
         p_node = depgraph.nodes[idx_parent]
         c_node = depgraph.nodes[idx_child]
@@ -328,13 +348,23 @@ class TransitionParser(ParserI):
         :return : string of binary features in libsvm format  which is 'featureID:value' pairs
         """
         unsorted_result = []
+        feature_values = {}
         for feature in features:
-            self._dictionary.setdefault(feature, len(self._dictionary))
-            unsorted_result.append(self._dictionary[feature])
-
-        # Default value of each feature is 1.0
+            if "Steve_feature" in feature:
+                key , value = feature.split(":")[0:2]
+                # if key in self._dictionary:
+                #     print(key)
+                self._dictionary.setdefault(key, len(self._dictionary))
+                unsorted_result.append(self._dictionary[key])
+                feature_values[self._dictionary[key]] = value
+            else:
+                # if feature in self._dictionary:
+                #     print(feature)
+                self._dictionary.setdefault(feature, len(self._dictionary))
+                unsorted_result.append(self._dictionary[feature])
+                feature_values[self._dictionary[feature]] = "1.0"
         return " ".join(
-            str(featureID) + ":1.0" for featureID in sorted(unsorted_result)
+            str(featureID) + ":" + feature_values[featureID] for featureID in sorted(unsorted_result)
         )
 
     def _is_projective(self, depgraph):
@@ -387,7 +417,7 @@ class TransitionParser(ParserI):
                 continue
 
             count_proj += 1
-            conf = Configuration(depgraph)
+            conf = Configuration(depgraph, self.glove)
             while len(conf.buffer) > 0:
                 b0 = conf.buffer[0]
                 features = conf.extract_features()
@@ -449,7 +479,7 @@ class TransitionParser(ParserI):
                 continue
 
             countProj += 1
-            conf = Configuration(depgraph)
+            conf = Configuration(depgraph, self.glove)
             while len(conf.buffer) > 0:
                 b0 = conf.buffer[0]
                 features = conf.extract_features()
@@ -524,17 +554,36 @@ class TransitionParser(ParserI):
             # Algorithms for Deterministic Incremental Dependency Parsing by Joakim Nivre
             # Todo : because of probability = True => very slow due to
             # cross-validation. Need to improve the speed here
-            model = svm.SVC(
-                kernel="poly",
-                degree=2,
-                coef0=0,
-                gamma=0.2,
-                C=0.5,
-                verbose=verbose,
-                probability=True,
+            
+            #model = svm.SVC(
+            #    kernel="poly",
+            #    degree=2,
+            #    coef0=0,
+            #    gamma=0.2,
+            #    C=0.5,
+            #    verbose=verbose,
+            #    probability=True,
+            #)
+
+            model = Pipeline(
+               [
+                   ('poly', PolynomialFeatures(2)),
+                   ('svm', CalibratedClassifierCV(base_estimator=svm.LinearSVC(penalty='l2'), cv=3))
+               ]
             )
 
+            #model = RandomForestClassifier(random_state=42)
+            #clf = GridSearchCV(model, {"n_estimators":[5, 50, 20, 70, 100], "max_depth":[5,7,16]}, verbose=2, n_jobs=4, cv=2)
+            #clf.fit(x_train, y_train)
+            #print(clf.best_score_, clf.best_params_)
+            #model = clf.best_estimator_
+            
             model.fit(x_train, y_train)
+
+            #print(x_train)
+            #print("\n\n")
+            #print(y_train)
+
             # Save the model to file name (as pickle)
             pickle.dump(model, open(modelfile, "wb"))
         finally:
@@ -554,7 +603,7 @@ class TransitionParser(ParserI):
         operation = Transition(self._algorithm)
 
         for depgraph in depgraphs:
-            conf = Configuration(depgraph)
+            conf = Configuration(depgraph, self.glove)
             while len(conf.buffer) > 0:
                 features = conf.extract_features()
                 col = []
