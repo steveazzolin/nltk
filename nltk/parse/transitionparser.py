@@ -21,6 +21,7 @@ from sklearn import svm
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.decomposition import TruncatedSVD
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 
@@ -560,6 +561,7 @@ class TransitionParser(ParserI):
             if self.linear_svm:
                 model = Pipeline([
                     #('poly', PolynomialFeatures(2)),
+                    ('svd', TruncatedSVD(n_components=10)),
                     ('svm', CalibratedClassifierCV(
                         base_estimator=svm.LinearSVC(penalty='l2'), 
                         cv=3))
