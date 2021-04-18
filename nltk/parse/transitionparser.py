@@ -559,9 +559,9 @@ class TransitionParser(ParserI):
             # cross-validation. Need to improve the speed here
 
             if self.linear_svm:
-                print("2")
+                print("3")
                 model = Pipeline([
-                    ('svd', TruncatedSVD(n_components=500)),
+                    ('svd', TruncatedSVD(n_components=1500)),
                     ('poly', PolynomialFeatures(2)),
                     ('svm', CalibratedClassifierCV(
                         base_estimator=svm.LinearSVC(penalty='l2'), 
