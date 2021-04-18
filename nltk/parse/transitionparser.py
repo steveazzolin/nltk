@@ -565,7 +565,7 @@ class TransitionParser(ParserI):
                 model = Pipeline([
                     ('poly', PolynomialFeatures(2)),
                     ('svm', CalibratedClassifierCV(
-                        base_estimator=svm.LinearSVC(penalty='l2', max_iter=1000, random_state=42, dual=False), 
+                        base_estimator=svm.LinearSVC(penalty='l2', random_state=42), 
                         cv=3))
                 ])
             else:
