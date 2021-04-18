@@ -358,14 +358,10 @@ class TransitionParser(ParserI):
         for feature in features:
             if "Steve_feature" in feature and self.use_glove:
                 key , value = feature.split(":")[0:2]
-                # if key in self._dictionary:
-                #     print(key)
                 self._dictionary.setdefault(key, len(self._dictionary))
                 unsorted_result.append(self._dictionary[key])
                 feature_values[self._dictionary[key]] = value
             else:
-                # if feature in self._dictionary:
-                #     print(feature)
                 self._dictionary.setdefault(feature, len(self._dictionary))
                 unsorted_result.append(self._dictionary[feature])
                 feature_values[self._dictionary[feature]] = "1.0"
@@ -562,10 +558,11 @@ class TransitionParser(ParserI):
             # cross-validation. Need to improve the speed here
 
             if self.linear_svm:
+                print("Si")
                 model = Pipeline([
                     ('poly', PolynomialFeatures(2)),
                     ('svm', CalibratedClassifierCV(
-                        base_estimator=svm.LinearSVC(penalty='l2', random_state=42), 
+                        base_estimator=svm.LinearSVC(penalty='l2'), 
                         cv=3))
                 ])
             else:
