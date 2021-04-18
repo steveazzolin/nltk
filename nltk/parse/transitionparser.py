@@ -13,19 +13,17 @@ from os import remove
 from copy import deepcopy
 from operator import itemgetter
 
-try:
-    from numpy import array
-    import numpy as np
-    from scipy import sparse
-    from sklearn.datasets import load_svmlight_file
-    from sklearn import svm
-    from sklearn.preprocessing import StandardScaler, PolynomialFeatures
-    from sklearn.calibration import CalibratedClassifierCV
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.model_selection import GridSearchCV
-    from sklearn.pipeline import Pipeline
-except ImportError:
-    pass
+from numpy import array
+import numpy as np
+from scipy import sparse
+from sklearn.datasets import load_svmlight_file
+from sklearn import svm
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+
 
 from nltk.parse import ParserI, DependencyGraph, DependencyEvaluator
 
@@ -44,7 +42,7 @@ class Configuration(object):
     This class also provides a method to represent a configuration as list of features.
     """
 
-    def __init__(self, dep_graph, glove):
+    def __init__(self, dep_graph, use_glove, glove):
         """
         :param dep_graph: the representation of an input in the form of dependency graph.
         :type dep_graph: DependencyGraph where the dependencies are not specified.
@@ -55,6 +53,7 @@ class Configuration(object):
         self.arcs = []  # empty set of arc
         self._tokens = dep_graph.nodes
         self._max_address = len(self.buffer)
+        self.use_glove = use_glove
         self.glove = glove
 
     def __str__(self):
@@ -101,10 +100,10 @@ class Configuration(object):
                 result.append("STK_0_LEMMA_" + token["lemma"])
             if self._check_informative(token["tag"]):
                 result.append("STK_0_POS_" + token["tag"])
-            #if "feats" in token and self._check_informative(token["feats"]):
-            feats = self.glove.get(token['word'], [0.0]*50)
-            for i , feat in enumerate(feats):
-                result.append(f"Steve_feature1{i}:" + str(feat))
+            if self.use_glove:
+                feats = self.glove.get(token['word'], [0.0]*50)
+                for i , feat in enumerate(feats):
+                    result.append(f"Steve_feature1{i}:" + str(feat))
             # Stack 1
             if len(self.stack) > 1:
                 stack_idx1 = self.stack[len(self.stack) - 2]
@@ -141,10 +140,10 @@ class Configuration(object):
                 result.append("BUF_0_LEMMA_" + token["lemma"])
             if self._check_informative(token["tag"]):
                 result.append("BUF_0_POS_" + token["tag"])
-            #if "feats" in token and self._check_informative(token["feats"]):
-            feats = self.glove.get(token['word'], [0.0]*50)
-            for i , feat in enumerate(feats):
-                result.append(f"Steve_feature2{i}:" + str(feat))
+            if self.use_glove:
+                feats = self.glove.get(token['word'], [0.0]*50)
+                for i , feat in enumerate(feats):
+                    result.append(f"Steve_feature2{i}:" + str(feat))
             # Buffer 1
             if len(self.buffer) > 1:
                 buffer_idx1 = self.buffer[1]
@@ -210,6 +209,7 @@ class Transition(object):
                 " Currently we only support %s and %s "
                 % (TransitionParser.ARC_STANDARD, TransitionParser.ARC_EAGER)
             )
+
 
     def left_arc(self, conf, relation):
         """
@@ -300,10 +300,12 @@ class TransitionParser(ParserI):
     ARC_STANDARD = "arc-standard"
     ARC_EAGER = "arc-eager"
 
-    def __init__(self, algorithm):
+    def __init__(self, algorithm, use_glove, linear_svm):
         """
         :param algorithm: the algorithm option of this parser. Currently support `arc-standard` and `arc-eager` algorithm
         :type algorithm: str
+        :param use_glove: whether to enable or not the additional GLOVE features
+        :type algorithm: bool
         """
         if not (algorithm in [self.ARC_STANDARD, self.ARC_EAGER]):
             raise ValueError(
@@ -315,19 +317,23 @@ class TransitionParser(ParserI):
         self._dictionary = {}
         self._transition = {}
         self._match_transition = {}
-
-        #Read GLOVE Embeddings
-        print("Reading GLOVE....")
+        self.use_glove = use_glove
+        self.linear_svm = linear_svm
         self.glove = {}
-        with open("glove.6B/glove.6B.50d.txt", 'r', encoding="utf-8") as f:
-            for line in f:
-                values = line.split()
-                word = values[0]
-                vector = np.asarray(values[1:], "float32")
-                self.glove[word] = vector
-        self.glove.setdefault(None, [0.0]*50)
-        self.glove.setdefault('None', [0.0]*50)
-        print("GLOVE read")
+
+        if use_glove:
+            #Read GLOVE Embeddings
+            print("Reading GLOVE....")
+            with open("../data/glove.6B.50d.txt", 'r', encoding="utf-8") as f:
+                for line in f:
+                    values = line.split()
+                    word = values[0]
+                    vector = np.asarray(values[1:], "float32")
+                    self.glove[word] = vector
+            self.glove.setdefault(None, [0.0]*50)
+            self.glove.setdefault('None', [0.0]*50)
+            print("GLOVE read")
+
 
     def _get_dep_relation(self, idx_parent, idx_child, depgraph):
         p_node = depgraph.nodes[idx_parent]
@@ -350,7 +356,7 @@ class TransitionParser(ParserI):
         unsorted_result = []
         feature_values = {}
         for feature in features:
-            if "Steve_feature" in feature:
+            if "Steve_feature" in feature and self.use_glove:
                 key , value = feature.split(":")[0:2]
                 # if key in self._dictionary:
                 #     print(key)
@@ -417,7 +423,7 @@ class TransitionParser(ParserI):
                 continue
 
             count_proj += 1
-            conf = Configuration(depgraph, self.glove)
+            conf = Configuration(depgraph, self.use_glove, self.glove)
             while len(conf.buffer) > 0:
                 b0 = conf.buffer[0]
                 features = conf.extract_features()
@@ -479,7 +485,7 @@ class TransitionParser(ParserI):
                 continue
 
             countProj += 1
-            conf = Configuration(depgraph, self.glove)
+            conf = Configuration(depgraph, self.use_glove, self.glove)
             while len(conf.buffer) > 0:
                 b0 = conf.buffer[0]
                 features = conf.extract_features()
@@ -555,22 +561,26 @@ class TransitionParser(ParserI):
             # Todo : because of probability = True => very slow due to
             # cross-validation. Need to improve the speed here
             
-            #model = svm.SVC(
-            #    kernel="poly",
-            #    degree=2,
-            #    coef0=0,
-            #    gamma=0.2,
-            #    C=0.5,
-            #    verbose=verbose,
-            #    probability=True,
-            #)
+            
+            print(x_train.shape)
 
-            model = Pipeline(
-               [
-                   ('poly', PolynomialFeatures(2)),
-                   ('svm', CalibratedClassifierCV(base_estimator=svm.LinearSVC(penalty='l2'), cv=3))
-               ]
-            )
+            if self.linear_svm:
+                model = Pipeline([
+                    ('poly', PolynomialFeatures(2)),
+                    ('svm', CalibratedClassifierCV(
+                        base_estimator=svm.LinearSVC(penalty='l2', max_iter=10000, random_state=42, dual=True), 
+                        cv=3))
+                ])
+            else:
+                model = svm.SVC(
+                    kernel="poly",
+                    degree=2,
+                    coef0=0,
+                    gamma=0.2,
+                    C=0.5,
+                    verbose=verbose,
+                    probability=True,
+                )
 
             #model = RandomForestClassifier(random_state=42)
             #clf = GridSearchCV(model, {"n_estimators":[5, 50, 20, 70, 100], "max_depth":[5,7,16]}, verbose=2, n_jobs=4, cv=2)
@@ -579,10 +589,6 @@ class TransitionParser(ParserI):
             #model = clf.best_estimator_
             
             model.fit(x_train, y_train)
-
-            #print(x_train)
-            #print("\n\n")
-            #print(y_train)
 
             # Save the model to file name (as pickle)
             pickle.dump(model, open(modelfile, "wb"))
@@ -603,7 +609,7 @@ class TransitionParser(ParserI):
         operation = Transition(self._algorithm)
 
         for depgraph in depgraphs:
-            conf = Configuration(depgraph, self.glove)
+            conf = Configuration(depgraph, self.use_glove, self.glove)
             while len(conf.buffer) > 0:
                 features = conf.extract_features()
                 col = []
