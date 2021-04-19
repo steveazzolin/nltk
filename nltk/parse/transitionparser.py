@@ -328,6 +328,8 @@ class TransitionParser(ParserI):
         :type algorithm: str
         :param use_glove: whether to enable or not the additional GLOVE features
         :type algorithm: bool
+        :param model: 0 -> LinearSVC 1 -> DecisionTree 3 -> SVC
+        :type algorithm: int
         """
         if not (algorithm in [self.ARC_STANDARD, self.ARC_EAGER]):
             raise ValueError(
