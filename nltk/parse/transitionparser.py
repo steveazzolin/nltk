@@ -566,8 +566,7 @@ class TransitionParser(ParserI):
                 #         base_estimator=svm.LinearSVC(penalty='l2'), 
                 #         cv=3))
                 # ])
-                from sklearn.naive_bayes import GaussianNB
-                model = GaussianNB() #DecisionTreeClassifier(random_state=0)
+                model = DecisionTreeClassifier(random_state=0)
             else:
                 model = svm.SVC(
                     kernel="poly",
