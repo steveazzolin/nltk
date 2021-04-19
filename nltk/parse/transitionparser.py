@@ -322,7 +322,7 @@ class TransitionParser(ParserI):
     ARC_STANDARD = "arc-standard"
     ARC_EAGER = "arc-eager"
 
-    def __init__(self, algorithm, use_glove, linear_svm):
+    def __init__(self, algorithm, use_glove, model):
         """
         :param algorithm: the algorithm option of this parser. Currently support `arc-standard` and `arc-eager` algorithm
         :type algorithm: str
@@ -340,7 +340,7 @@ class TransitionParser(ParserI):
         self._transition = {}
         self._match_transition = {}
         self.use_glove = use_glove
-        self.linear_svm = linear_svm
+        self.model = model
         self.glove = {}
 
         if use_glove:
@@ -579,13 +579,14 @@ class TransitionParser(ParserI):
             # Todo : because of probability = True => very slow due to
             # cross-validation. Need to improve the speed here
 
-            if self.linear_svm:
-                # model = Pipeline([
-                #     ('poly', PolynomialFeatures(2)),
-                #     ('svm', CalibratedClassifierCV(
-                #         base_estimator=svm.LinearSVC(penalty='l2'), 
-                #         cv=3))
-                # ])
+            if self.model == 0:
+                model = Pipeline([
+                    ('poly', PolynomialFeatures(2)),
+                    ('svm', CalibratedClassifierCV(
+                        base_estimator=svm.LinearSVC(penalty='l2'), 
+                        cv=3))
+                ])
+            elif self.model == 1:
                 model = DecisionTreeClassifier(random_state=0)
             else:
                 model = svm.SVC(
