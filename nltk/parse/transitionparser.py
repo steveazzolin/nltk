@@ -57,6 +57,7 @@ class Configuration(object):
         self._max_address = len(self.buffer)
         self.use_glove = use_glove
         self.glove = glove
+        self.dg = dep_graph
 
     def __str__(self):
         return (
@@ -92,10 +93,16 @@ class Configuration(object):
         result = []
         # Todo : can come up with more complicated features set for better
         # performance.
+
+        stack_first_idx = None #added by Steve
+
         if len(self.stack) > 0:
             # Stack 0
             stack_idx0 = self.stack[len(self.stack) - 1]
             token = self._tokens[stack_idx0]
+
+            stack_first_idx = stack_idx0 #added by steve
+
             if self._check_informative(token["word"], True):
                 result.append("STK_0_FORM_" + token["word"])
             if "lemma" in token and self._check_informative(token["lemma"]):
@@ -132,10 +139,15 @@ class Configuration(object):
                 result.append("STK_0_RDEP_" + dep_right_most)
 
         # Check Buffered 0
+        buffer_first_idx = None
+
         if len(self.buffer) > 0:
             # Buffer 0
             buffer_idx0 = self.buffer[0]
             token = self._tokens[buffer_idx0]
+
+            buffer_first_idx = buffer_idx0 #added by Steve
+
             if self._check_informative(token["word"], True):
                 result.append("BUF_0_FORM_" + token["word"])
             if "lemma" in token and self._check_informative(token["lemma"]):
@@ -181,6 +193,14 @@ class Configuration(object):
                 result.append("BUF_0_LDEP_" + dep_left_most)
             if self._check_informative(dep_right_most):
                 result.append("BUF_0_RDEP_" + dep_right_most)
+
+        # Added by Steve
+        if buffer_first_idx is not None:
+           result.append("LC1"+str(self.dg.left_children(buffer_first_idx)))
+           result.append("RC1"+str(self.dg.right_children(buffer_first_idx)))
+        if stack_first_idx is not None:
+           result.append("RC2"+str(self.dg.right_children(stack_first_idx)))
+           result.append("LC2"+str(self.dg.left_children(stack_first_idx)))
 
         return result
 
