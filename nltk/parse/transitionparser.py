@@ -582,12 +582,7 @@ class TransitionParser(ParserI):
             # cross-validation. Need to improve the speed here
 
             if self.model == 0:
-                model = Pipeline([
-                    ('poly', PolynomialFeatures(2)),
-                    ('svm', CalibratedClassifierCV(
-                        base_estimator=svm.LinearSVC(penalty='l2'), 
-                        cv=3))
-                ])
+                model = RandomForestClassifier(random_state=42)
             elif self.model == 1:
                 model = DecisionTreeClassifier(random_state=0)
             else:
