@@ -21,6 +21,7 @@ from sklearn import svm
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.decomposition import TruncatedSVD
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
@@ -559,13 +560,13 @@ class TransitionParser(ParserI):
             # cross-validation. Need to improve the speed here
 
             if self.linear_svm:
-                print("3")
-                model = Pipeline([
-                    ('poly', PolynomialFeatures(2)),
-                    ('svm', CalibratedClassifierCV(
-                        base_estimator=svm.LinearSVC(penalty='l2'), 
-                        cv=3))
-                ])
+                # model = Pipeline([
+                #     ('poly', PolynomialFeatures(2)),
+                #     ('svm', CalibratedClassifierCV(
+                #         base_estimator=svm.LinearSVC(penalty='l2'), 
+                #         cv=3))
+                # ])
+                model = DecisionTreeClassifier(random_state=42)
             else:
                 model = svm.SVC(
                     kernel="poly",
