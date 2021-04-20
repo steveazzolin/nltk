@@ -198,11 +198,11 @@ class Configuration(object):
         # Added by Steve
         if self.use_children:
             if buffer_first_idx is not None:
-            result.append("LC1"+str(self.dg.left_children(buffer_first_idx)))
-            result.append("RC1"+str(self.dg.right_children(buffer_first_idx)))
+                result.append("LC1"+str(self.dg.left_children(buffer_first_idx)))
+                result.append("RC1"+str(self.dg.right_children(buffer_first_idx)))
             if stack_first_idx is not None:
-            result.append("RC2"+str(self.dg.right_children(stack_first_idx)))
-            result.append("LC2"+str(self.dg.left_children(stack_first_idx)))
+                result.append("RC2"+str(self.dg.right_children(stack_first_idx)))
+                result.append("LC2"+str(self.dg.left_children(stack_first_idx)))
 
         return result
 
