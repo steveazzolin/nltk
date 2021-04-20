@@ -44,7 +44,7 @@ class Configuration(object):
     This class also provides a method to represent a configuration as list of features.
     """
 
-    def __init__(self, dep_graph, use_glove, glove):
+    def __init__(self, dep_graph, use_glove, use_children, glove):
         """
         :param dep_graph: the representation of an input in the form of dependency graph.
         :type dep_graph: DependencyGraph where the dependencies are not specified.
@@ -56,6 +56,7 @@ class Configuration(object):
         self._tokens = dep_graph.nodes
         self._max_address = len(self.buffer)
         self.use_glove = use_glove
+        self.use_children = use_children
         self.glove = glove
         self.dg = dep_graph
 
@@ -195,12 +196,13 @@ class Configuration(object):
                 result.append("BUF_0_RDEP_" + dep_right_most)
 
         # Added by Steve
-        if buffer_first_idx is not None:
-           result.append("LC1"+str(self.dg.left_children(buffer_first_idx)))
-           result.append("RC1"+str(self.dg.right_children(buffer_first_idx)))
-        if stack_first_idx is not None:
-           result.append("RC2"+str(self.dg.right_children(stack_first_idx)))
-           result.append("LC2"+str(self.dg.left_children(stack_first_idx)))
+        if self.use_children:
+            if buffer_first_idx is not None:
+            result.append("LC1"+str(self.dg.left_children(buffer_first_idx)))
+            result.append("RC1"+str(self.dg.right_children(buffer_first_idx)))
+            if stack_first_idx is not None:
+            result.append("RC2"+str(self.dg.right_children(stack_first_idx)))
+            result.append("LC2"+str(self.dg.left_children(stack_first_idx)))
 
         return result
 
@@ -322,11 +324,13 @@ class TransitionParser(ParserI):
     ARC_STANDARD = "arc-standard"
     ARC_EAGER = "arc-eager"
 
-    def __init__(self, algorithm, use_glove, model):
+    def __init__(self, algorithm, use_glove, use_children, model):
         """
         :param algorithm: the algorithm option of this parser. Currently support `arc-standard` and `arc-eager` algorithm
         :type algorithm: str
         :param use_glove: whether to enable or not the additional GLOVE features
+        :type algorithm: bool
+        :param use_glove: whether to enable or not the additional features about the children of the first token in stack and buffer
         :type algorithm: bool
         :param model: 0 -> LinearSVC 1 -> DecisionTree 3 -> SVC
         :type algorithm: int
@@ -342,6 +346,7 @@ class TransitionParser(ParserI):
         self._transition = {}
         self._match_transition = {}
         self.use_glove = use_glove
+        self.use_children = use_children
         self.model = model
         self.glove = {}
 
@@ -443,7 +448,7 @@ class TransitionParser(ParserI):
                 continue
 
             count_proj += 1
-            conf = Configuration(depgraph, self.use_glove, self.glove)
+            conf = Configuration(depgraph, self.use_glove, self.use_children, self.glove)
             while len(conf.buffer) > 0:
                 b0 = conf.buffer[0]
                 features = conf.extract_features()
@@ -505,7 +510,7 @@ class TransitionParser(ParserI):
                 continue
 
             countProj += 1
-            conf = Configuration(depgraph, self.use_glove, self.glove)
+            conf = Configuration(depgraph, self.use_glove, self.use_children, self.glove)
             while len(conf.buffer) > 0:
                 b0 = conf.buffer[0]
                 features = conf.extract_features()
@@ -623,7 +628,7 @@ class TransitionParser(ParserI):
         operation = Transition(self._algorithm)
 
         for depgraph in depgraphs:
-            conf = Configuration(depgraph, self.use_glove, self.glove)
+            conf = Configuration(depgraph, self.use_glove, self.use_children, self.glove)
             while len(conf.buffer) > 0:
                 features = conf.extract_features()
                 col = []
